@@ -1,0 +1,216 @@
+classdef RingMagnet
+    %UNTITLED2 Summary of this class goes here
+    %   Detailed explanation goes here
+
+    properties
+        transform_center;
+        radius_outer = 2e-3;
+        radius_inner = 0.75e-3;
+        length = 1e-3;
+        flux_density_residual = 1.35;
+    end
+
+    methods
+
+        function obj = RingMagnet(position_center_global, direction_azimuth_global)
+
+            % Derive orientation matrix (assume we are working in the yz-frame,
+            % for each magnet the x-axis is constant: x=[1;0;0]);
+            z_global = direction_azimuth_global / norm(direction_azimuth_global);
+            x_global = [1;0;0];
+            y_global = cross(z_global,x_global);
+
+            R_center = [x_global, y_global, z_global];
+            p_center = position_center_global;
+            obj.transform_center = [R_center p_center;
+                zeros(1,3) 1];
+
+        end
+
+
+        % Output: field in R3, fieldGradient in R3x3
+        function [field, fieldGradient] = get_field_and_gradient(obj,position_global)
+
+            % Transform global position to local frame
+            position_local = obj.transform_center \ [position_global; 1];
+
+            % Get xyz-positions local
+            x_local = position_local(1);
+            y_local = position_local(2);
+            z_local = position_local(3);
+
+            % If z is negative, move to positive and invert xy-field to
+            % compensate afterwards (field model is only valid for z >= 0)
+
+            % If in close vicinity to the magnet
+            if abs(z_local) < 1e-3
+
+                % Check if ||(x,y)|| is too close to magnet. If true, set the
+                % value to be on the border
+                if norm([x_local,y_local]) < 2.5e-3 % Value determined by magnetic field fit function
+                    xy_local = [x_local; y_local];
+                    xy_local = ( xy_local./norm(xy_local) ) * NaN;
+                    x_local = xy_local(1);
+                    y_local = xy_local(2);
+                end
+
+                % if z is negative, negate z and compensate field
+                % afterwards
+                if (z_local < 0)
+
+                    field = get_ring_field_side(x_local, y_local, -z_local);
+                    field = [-field(1); -field(2); field(3)];
+
+                    fieldGradient = get_ring_gradient_side(x_local, y_local, -z_local);
+                    fieldGradient = [-fieldGradient(1,1) -fieldGradient(1,2) fieldGradient(1,3);
+                        -fieldGradient(2,1) -fieldGradient(2,2) fieldGradient(2,3);
+                        fieldGradient(3,1) fieldGradient(3,2) -fieldGradient(3,3)];
+
+                    % Or regularly compute field
+                else
+                    field = get_ring_field_side(x_local, y_local, z_local);
+                    fieldGradient = get_ring_gradient_side(x_local, y_local, z_local);
+                end
+
+                % Else if further away from the magnet
+            else
+                % If z is negative, negate z and compensate field
+                % afterwards
+                if (z_local < 0)
+                    field = get_ring_field_front(x_local, y_local, -z_local);
+                    field = [-field(1); -field(2); field(3)];
+
+                    fieldGradient = get_ring_gradient_front(x_local, y_local, -z_local);
+                    fieldGradient = [-fieldGradient(1,1) -fieldGradient(1,2) fieldGradient(1,3);
+                        -fieldGradient(2,1) -fieldGradient(2,2) fieldGradient(2,3);
+                        fieldGradient(3,1) fieldGradient(3,2) -fieldGradient(3,3)];
+                    % Or regularly compute field
+                else
+                    field = get_ring_field_front(x_local, y_local, z_local);
+                    fieldGradient = get_ring_gradient_front(x_local, y_local, z_local);
+                end
+            end
+
+            % Transform field to global coordinates
+            field = obj.transform_center(1:3,1:3) * field;
+            fieldGradient = obj.transform_center(1:3,1:3) * fieldGradient * obj.transform_center(1:3,1:3)';
+
+        end
+
+
+        function draw_magnet(obj)
+            % coordinate axes of magnet
+            transform = obj.transform_center;
+            transform(1:3,4) = transform(1:3,4)*1e3;
+
+            % Corner of patch in local yz-plane
+            z_local = [obj.length/2 -obj.length/2 -obj.length/2 obj.length/2]*1e3;
+            y_local = [obj.radius_outer obj.radius_outer -obj.radius_outer -obj.radius_outer]*1e3;
+            x_local = [0 0 0 0];
+            positions_patch_local = [x_local; y_local; z_local; ones(1,size(x_local,2))];
+
+            % Transform to global coordinates
+            positions_patch_global = transform * positions_patch_local;
+            x_global = positions_patch_global(1,:);
+            y_global = positions_patch_global(2,:);
+            z_global = positions_patch_global(3,:);
+
+            % Now the patch will be in the global yz-frame. Draw the patch
+            % in the xy-frame instead
+
+            % Draw patch and elevate
+            fill3(y_global, z_global, x_global+5, 'r');
+        end
+
+
+
+        % Calculate forces and torques on the magnet by all magnets
+        % preceding its own magnet number, excluding external field
+        function [torque, force, torque_from_magnet_field, ...
+                torque_from_magnet_gradient] ...
+                = get_torques_and_forces(obj, magnet_source)
+
+            Nl = 10;    dl = obj.length / Nl;
+            Nr = 10;    dr = (obj.radius_outer - obj.radius_inner) / Nr;
+            Nangle = 120; dangle = 2*pi / Nangle;
+
+            % Initialize torques
+            torque_local = 0;
+            torque_local_from_ring_magnet_field = 0;
+            torque_local_from_ring_magnet_gradient = 0;
+
+            % Initialize forces
+            force_local = 0;
+            for theta = 0 : dangle : 2*pi-dangle
+                for r = obj.radius_inner : dr : obj.radius_outer-dr
+                    for l = -obj.length/2 : dl : obj.length/2-dl
+
+                        % Local position
+                        p_x_local = (r+dr/2) * cos(theta+dangle/2);
+                        p_y_local = (r+dr/2) * sin(theta+dangle/2);
+                        p_z_local = l;
+                        position_local = [p_x_local; p_y_local; p_z_local];
+
+                        % Global position
+                        position_global = obj.transform_center * [position_local; 1];
+                        p_x_global = position_global(1);
+                        p_y_global = position_global(2);
+                        p_z_global = position_global(3);
+
+                        % Compute field and gradients in global frame
+                        field_global = zeros(3,1);
+                        field_gradient_global = zeros(3,3);
+
+                        [field, fieldGrad] = magnet_source.get_field_and_gradient([p_x_global; p_y_global; p_z_global]);
+
+                        % Add to global field
+                        field_global = field_global + field;
+                        field_gradient_global = field_gradient_global + fieldGrad;
+
+
+                        % Store the field only from magnets
+                        field_global_magnets = field;
+
+                        % Rotate field and gradients to local frame
+                        field_local = obj.transform_center(1:3,1:3) \ field_global;
+                        field_local_magnets = obj.transform_center(1:3,1:3) \ field_global_magnets;
+                        field_gradient_local = obj.transform_center(1:3,1:3) \ field_gradient_global * obj.transform_center(1:3,1:3);
+
+                        % Local field gradient 3x3 to 5x1
+                        field_gradient_local = [field_gradient_local(1,1);
+                            field_gradient_local(1,2); field_gradient_local(1,3);
+                            field_gradient_local(2,2); field_gradient_local(2,3)];
+
+                        % Compute magnetic dipole moment in local frame
+                        area_sector = pi * ((r+dr)^2 - r^2) * (dangle/(2*pi));
+                        volume_sector = area_sector * dl;
+                        moment_magnetic = (volume_sector * obj.flux_density_residual) / (pi * 4e-7) * [0; 0; 1];
+
+                        % Compute magnetic force
+                        force_magnetic = [moment_magnetic(1) moment_magnetic(2) moment_magnetic(3) 0 0;
+                            0 moment_magnetic(1) 0 moment_magnetic(2) moment_magnetic(3);
+                            -moment_magnetic(3) 0 moment_magnetic(1) -moment_magnetic(3) moment_magnetic(2)] * ...
+                            field_gradient_local;
+
+                        % Compute magnetic torque
+                        torque_local_from_ring_magnet_gradient = torque_local_from_ring_magnet_gradient + cross(position_local, force_magnetic);
+                        torque_local_from_ring_magnet_field = torque_local_from_ring_magnet_field + cross(moment_magnetic, field_local_magnets);
+                        torque_magnetic = cross(moment_magnetic, field_local) + cross(position_local, force_magnetic);
+
+                        % Add to overall torque and moment in local frame
+                        force_local = force_local + force_magnetic;
+                        torque_local = torque_local + torque_magnetic;
+                    end
+                end
+
+            end
+
+            % Transform local forces and torques to global frame
+            force  = obj.transform_center(1:3, 1:3) * force_local;
+            torque = obj.transform_center(1:3, 1:3) * torque_local;
+            torque_from_magnet_field = obj.transform_center(1:3, 1:3) * torque_local_from_ring_magnet_field;
+            torque_from_magnet_gradient = obj.transform_center(1:3, 1:3) * torque_local_from_ring_magnet_gradient;
+
+        end
+    end
+end
