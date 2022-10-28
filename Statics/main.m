@@ -5,7 +5,7 @@ addpath('./MagneticField', './CosseratRods')
 global B_global Bgrad_global
 
 % Magnetic field
-field_range = (20) * 1e-3;
+field_range = (0:1:20) * 1e-3;
 
 
 %% Internal permanent magnet values
@@ -102,9 +102,9 @@ Helix = CosseratHelix(length_helix-2*height, radius_helix_outer, ...
     elastic_modulus_backbone, shear_modulus_helix, shear_modulus_backbone, ...
     bending_angle_design, number_of_windings);
 
-Segment = {Magnet,Disc,Helix,Disc,Magnet};%, Disc,Helix,Disc,Magnet};
-number_of_discretizations = [10 10 180 10 10];% 10 180 10 10];
-positions_magnets_cosserat_array = [1, 5];% 8];
+Segment = {Disc,Helix,Disc,Magnet};%, Disc,Helix,Disc,Magnet};
+number_of_discretizations = [10 180 10 10];% 10 180 10 10];
+positions_magnets_cosserat_array = [4];% 8];
 
 % Storage variables
 Deflections = NaN(1,size(field_range,2));
