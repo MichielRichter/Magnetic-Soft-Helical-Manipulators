@@ -103,8 +103,8 @@ Helix = CosseratHelix(length_helix-2*height, radius_helix_outer, ...
     bending_angle_design, number_of_windings);
 
 Segment = {Magnet,Disc,Helix,Disc,Magnet};%, Disc,Helix,Disc,Magnet};
-number_of_discretizations = [10 180 10 10];% 10 180 10 10];
-positions_magnets_cosserat_array = [4];% 8];
+number_of_discretizations = [10 10 180 10 10];% 10 180 10 10];
+positions_magnets_cosserat_array = [1, 5];% 8];
 
 % Storage variables
 Deflections = NaN(1,size(field_range,2));
