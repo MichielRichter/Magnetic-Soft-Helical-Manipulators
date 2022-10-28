@@ -2,7 +2,7 @@ function [Y, wrench_internal_base_guess] = levenbergMarquardt(p0, q0, n0, m0, co
 
 % Make an array of ring magnet classes
 global array_ring_magnets
-array_ring_magnets = {RingMagnet(p0, q0)}; % Base magnet
+array_ring_magnets = {}; % Base magnet
 
 % Guessed internal wrench at base
 wrench_internal_base_guess = [n0; m0];
@@ -63,7 +63,7 @@ end
     function Y = shoot(y0)
         
         % Array of ring magnets
-        array_ring_magnets = {RingMagnet(p0, q0)}; % Base magnet
+        array_ring_magnets = {}; % Base magnet
         
         % Initialize
         y_base = y0;
