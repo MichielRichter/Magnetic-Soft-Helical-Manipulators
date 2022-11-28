@@ -1,4 +1,11 @@
 clear all; clc;
+%{
+    This program requires running COMSOL Multiphysics with Matlab. Field estimates from a COMSOL MODEL
+    are obtained. Then the program aims to fit an axially symmetric field model to the estimates. For the
+    model, see Richter et al. (2021) "Multi-point orientation control of discretely magnetized continuum
+    manipulators". The magnet axis is assumed the z-axis. 
+%}
+
 %% Make model and coordinates grid
 model = Ring_Magnet_COMSOL;
 
