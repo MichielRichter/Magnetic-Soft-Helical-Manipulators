@@ -3,8 +3,8 @@ clear all; clc;
 model = Ring_Magnet_COMSOL;
 
 % Coordinates
-z1 = (0.55 : 2 : 60) * 1e-3;
-y1 = (0 : 2 : 50) * 1e-3;
+z1 = (0.55 : 0.5 : 60) * 1e-3;
+y1 = (0 : 0.5 : 50) * 1e-3;
 z2 = (0 : 0.5 : 20) * 1e-3;
 y2 = (2.25 : 0.5 : 20) * 1e-3;
 
@@ -47,11 +47,11 @@ fieldGrad = matlabFunction(dBsym);
 %matlabFunction(dBsym,'File','get_ring_gradient_z0_to_6_y3_to_6','Vars',{x,y,z});
 %% Plotting
 N = 120;
-ymin = -30e-3;
-ymax = 30e-3;
+ymin = -3e-3;
+ymax = 3e-3;
 ystep = (ymax-ymin)/N;
-zmin = 30e-3;
-zmax = 50e-3;
+zmin = 3e-3;
+zmax = 5e-3;
 zstep = (zmax-zmin)/N;
 y = [ymin:ystep:ymax];
 z = [zmin:zstep:zmax];
