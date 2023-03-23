@@ -1,6 +1,10 @@
 function [Rs] = objective(disp, B, fitOrder, coilMeas, activA, activB)
 
 global a
+
+%% Remove all rows containing NaN from data
+coilMeas(any(isnan(coilMeas),2),:) = [];
+
 %% Get source displacements, fields, positions
 if activA && activB
     dA = disp(1:2:end);
@@ -70,22 +74,18 @@ y = [Bx By Bz];
 f = [Bxmod Bymod Bzmod];
 
 
-SSresX = sum((y(:,1)-f(:,1)).^2);
+SSresY = sum((y(:,2)-f(:,2)).^2);
 SSresZ = sum((y(:,3)-f(:,3)).^2);
 
-SStotX = sum((y(:,1)-mean(y(:,1))).^2);
+SStotY = sum((y(:,2)-mean(y(:,2))).^2);
 SStotZ = sum((y(:,3)-mean(y(:,3))).^2);
 
-R2X = 1-(SSresX/SStotX);
+R2Y = 1-(SSresY/SStotY);
 R2Z = 1-(SSresZ/SStotZ);
 
-
-%Ox = sum( (y(:,1) - f(:,1)).^2./((y(:,1)-mean(y(:,1))).^2) + ((y(:,1) - f(:,1))./y(:,1)).^2 );
-%Oz = sum( (y(:,3) - f(:,3)).^2./((y(:,3)-mean(y(:,3))).^2) + ((y(:,3) - f(:,1))./y(:,3)).^2 );
 %%
-Rs = -R2X + -R2Z;
-%Rs = ( mean(abs(y(:,1)-f(:,1))) + mean(abs(y(:,3)-f(:,3))) );
-%Rs = -Ox + -Oz;
+Rs = -R2Y + -R2Z;
+
 
 end
 
