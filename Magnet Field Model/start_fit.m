@@ -1,4 +1,4 @@
-function [field_3d_mod, B, Bsymbolic, R2X, R2Z] = start_fit(coords_3d, field_3d, ...
+function [field_3d_mod, B, Bsymbolic, R2Y, R2Z] = start_fit(coords_3d, field_3d, ...
     activA, activB, fitOrder, dispVars)
 
 global a
@@ -185,7 +185,7 @@ SSresZ = sum((y(:,3)-f(:,3)).^2);
 SStotY = sum((y(:,2)-mean(y(:,2))).^2);
 SStotZ = sum((y(:,3)-mean(y(:,3))).^2);
 
-R2X = 1-(SSresY/SStotY);
+R2Y = 1-(SSresY/SStotY);
 R2Z = 1-(SSresZ/SStotZ);
 
 
